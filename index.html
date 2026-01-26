@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Professional Bulk Replacer</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f8f9fa;
+        }
+
+        .docs-shadow {
+            box-shadow: 0 1px 3px rgba(60,64,67,.3), 0 4px 8px 3px rgba(60,64,67,.15);
+        }
+
+        .sidebar-transition {
+            transition: transform 0.3s ease-in-out;
+        }
+
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+
+        /* List item transition */
+        .list-item {
+            transition: all 0.2s ease;
+        }
+    </style>
+</head>
+<body class="flex flex-col min-h-screen">
+
+    <!-- Header Navigation -->
+    <header class="bg-white border-b border-gray-300 px-4 py-2 sticky top-0 z-40 flex items-center gap-4">
+        <div class="text-blue-600 text-2xl font-bold p-1">📝</div>
+        <div class="flex flex-col flex-grow">
+            <div class="flex items-center gap-2">
+                <span class="text-lg font-medium text-gray-700">Rapid Bulk Replacer</span>
+                <span class="text-xs bg-gray-100 px-2 py-0.5 rounded text-gray-500 font-bold">Local Processing</span>
+            </div>
+            <div class="flex gap-4 text-sm text-gray-600">
+                <button id="mainActionBtn" onclick="performFullProcess()" class="hover:bg-gray-100 px-2 rounded font-bold text-blue-600">Run Replacer</button>
+                <button onclick="toggleBulkPanel()" class="hover:bg-gray-100 px-2 rounded">Rules Manager</button>
+                <button class="hover:bg-gray-100 px-2 rounded text-red-500" onclick="resetToPreset()">Reset to Default</button>
+            </div>
+        </div>
+        <div class="flex items-center gap-3">
+            <button onclick="copyAll()" class="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-lg font-medium text-sm transition shadow-sm">
+                Copy Result
+            </button>
+        </div>
+    </header>
+
+    <div class="flex flex-grow relative overflow-hidden">
+        
+        <!-- Main Editor Area -->
+        <main class="flex-grow p-6 flex flex-col items-center overflow-y-auto">
+            
+            <div class="w-full max-w-5xl space-y-6">
+                <!-- Status Indicator -->
+                <div id="loadingIndicator" class="hidden w-full bg-green-50 border border-green-200 p-3 rounded-lg flex items-center justify-center text-green-700 text-sm font-medium">
+                    Process Complete! All custom rules have been applied.
+                </div>
+
+                <!-- Editor Card -->
+                <div class="bg-white rounded-lg border border-gray-300 docs-shadow flex flex-col h-[500px]">
+                    <div class="flex border-b border-gray-200 bg-gray-50 rounded-t-lg">
+                        <div class="flex-1 px-4 py-2 text-xs font-bold text-gray-500 uppercase">Source Content</div>
+                        <div class="flex-1 px-4 py-2 text-xs font-bold text-blue-500 uppercase border-l border-gray-200">Replaced Result</div>
+                    </div>
+                    <div class="flex flex-grow overflow-hidden">
+                        <textarea id="sourceArea" class="flex-1 p-4 outline-none resize-none text-gray-800 text-base leading-relaxed border-r border-gray-200" placeholder="Paste your original text here..."></textarea>
+                        <textarea id="targetArea" class="flex-1 p-4 outline-none resize-none text-gray-800 text-base leading-relaxed bg-blue-50/10" placeholder="Processed result will appear here..." readonly></textarea>
+                    </div>
+                </div>
+
+                <!-- Analysis Section -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div class="bg-white p-6 rounded-lg border border-gray-300 shadow-sm">
+                        <h3 class="font-bold text-gray-700 mb-4 border-b pb-2">Analysis Report</h3>
+                        <div class="space-y-3">
+                            <div class="flex justify-between"><span class="text-sm text-gray-500">Character Count</span><span id="statChars" class="font-bold">0</span></div>
+                            <div class="flex justify-between"><span class="text-sm text-gray-500">Total Replacements</span><span id="statReplaced" class="font-bold text-blue-600">0</span></div>
+                            <div class="flex justify-between"><span class="text-sm text-gray-500">Active Rules</span><span id="statRules" class="font-bold">1</span></div>
+                        </div>
+                    </div>
+                    <div class="bg-white p-6 rounded-lg border border-gray-300 shadow-sm md:col-span-2 h-64">
+                        <canvas id="analysisChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- Right Panel: Rules Manager -->
+        <aside id="bulkPanel" class="w-96 bg-white border-l border-gray-300 shadow-xl flex flex-col fixed right-0 top-[65px] bottom-0 z-30 sidebar-transition translate-x-full">
+            <div class="p-4 border-b border-gray-200 flex justify-between items-center bg-gray-50">
+                <h2 class="font-bold text-gray-700">Custom Rules (Unlimited)</h2>
+                <button onclick="toggleBulkPanel()" class="text-gray-400 hover:text-gray-600">✕</button>
+            </div>
+            
+            <div class="flex-grow overflow-y-auto p-4 no-scrollbar bg-white">
+                <p class="text-xs text-gray-500 mb-4">Rules are executed in sequence. Supports plain text replacement.</p>
+                
+                <div id="bulkList" class="space-y-3">
+                    <!-- JS generated list items -->
+                </div>
+
+                <button onclick="addNewRow()" class="w-full mt-4 border-2 border-dashed border-gray-300 py-2 rounded-lg text-gray-400 hover:border-blue-400 hover:text-blue-500 transition-all text-sm">
+                    + Add New Rule
+                </button>
+            </div>
+
+            <div class="p-4 border-t border-gray-200 bg-gray-50 space-y-2">
+                <button onclick="performFullProcess()" class="w-full bg-blue-600 text-white py-3 rounded-lg font-bold hover:bg-blue-700 transition shadow-md">
+                    Apply Rules Now
+                </button>
+                <button onclick="clearAllRules()" class="w-full text-gray-400 text-xs py-1 hover:text-red-500 transition">
+                    Clear All Rules
+                </button>
+            </div>
+        </aside>
+
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="fixed bottom-10 left-1/2 -translate-x-1/2 bg-gray-800 text-white px-6 py-2 rounded-full text-sm opacity-0 transition-opacity pointer-events-none z-50 shadow-lg">
+        Action executed
+    </div>
+
+    <script>
+        // Preset Rules (Cantonese Colloquial Rules)
+        const DEFAULT_RULES = [
+            { find: '只', replace: '隻' },
+            { find: '噉', replace: '咁' },
+            { find: '𠮶', replace: '嗰' },
+            { find: '咯', replace: '囉' },
+            { find: '㖞', replace: '喎' },
+            { find: '恁', replace: '諗' },
+            { find: '咧', replace: '呢' },
+            { find: '哇', replace: '嘩' },
+            { find: '系', replace: '係' }
+        ];
+
+        let bulkItems = [...DEFAULT_RULES];
+        let chart = null;
+
+        // --- UI Rendering ---
+        function renderBulkList() {
+            const container = document.getElementById('bulkList');
+            container.innerHTML = '';
+            
+            bulkItems.forEach((item, index) => {
+                const row = document.createElement('div');
+                row.className = 'flex items-center gap-2 list-item group';
+                row.innerHTML = `
+                    <div class="flex-grow grid grid-cols-2 gap-2">
+                        <div class="relative">
+                             <span class="absolute left-2 top-1.5 text-[10px] text-gray-300 uppercase font-bold">Find</span>
+                             <input type="text" placeholder="Search text" value="${item.find}" 
+                                onchange="updateItem(${index}, 'find', this.value)"
+                                class="w-full text-sm border border-gray-200 rounded pl-9 pr-2 py-2 focus:border-blue-500 outline-none focus:ring-1 focus:ring-blue-100 transition-all">
+                        </div>
+                        <div class="relative">
+                             <span class="absolute left-2 top-1.5 text-[10px] text-gray-300 uppercase font-bold">With</span>
+                             <input type="text" placeholder="Replace with" value="${item.replace}" 
+                                onchange="updateItem(${index}, 'replace', this.value)"
+                                class="w-full text-sm border border-gray-200 rounded pl-10 pr-2 py-2 focus:border-blue-500 outline-none focus:ring-1 focus:ring-blue-100 transition-all">
+                        </div>
+                    </div>
+                    <button onclick="deleteRow(${index})" class="text-gray-300 hover:text-red-500 p-1 transition-colors">✕</button>
+                `;
+                container.appendChild(row);
+            });
+            
+            document.getElementById('statRules').innerText = bulkItems.length;
+        }
+
+        function updateItem(index, key, value) {
+            bulkItems[index][key] = value;
+        }
+
+        function addNewRow() {
+            bulkItems.push({ find: '', replace: '' });
+            renderBulkList();
+            const container = document.getElementById('bulkList').parentElement;
+            container.scrollTo({ top: container.scrollHeight, behavior: 'smooth' });
+        }
+
+        function deleteRow(index) {
+            bulkItems.splice(index, 1);
+            renderBulkList();
+        }
+
+        function clearAllRules() {
+            bulkItems = [];
+            renderBulkList();
+        }
+
+        function resetToPreset() {
+            bulkItems = [...DEFAULT_RULES];
+            renderBulkList();
+            showToast("Default rules restored");
+        }
+
+        function toggleBulkPanel() {
+            document.getElementById('bulkPanel').classList.toggle('translate-x-full');
+        }
+
+        // --- Core Logic: Local Processing ---
+        function performFullProcess() {
+            const source = document.getElementById('sourceArea').value;
+            if (!source) {
+                showToast("Please enter some text");
+                return;
+            }
+
+            const loading = document.getElementById('loadingIndicator');
+            loading.classList.remove('hidden');
+            
+            let processedText = source;
+            let totalReplaceCount = 0;
+            const replaceStats = {};
+            
+            bulkItems.forEach(item => {
+                if (item.find) {
+                    const escapedFind = item.find.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                    const regex = new RegExp(escapedFind, 'g');
+                    const matches = processedText.match(regex);
+                    
+                    if (matches) {
+                        totalReplaceCount += matches.length;
+                        processedText = processedText.replace(regex, item.replace);
+                        replaceStats[item.find] = (replaceStats[item.find] || 0) + matches.length;
+                    }
+                }
+            });
+
+            document.getElementById('targetArea').value = processedText;
+            document.getElementById('statChars').innerText = source.length;
+            document.getElementById('statReplaced').innerText = totalReplaceCount;
+            
+            updateChart(replaceStats);
+            showToast("Processing complete");
+            
+            setTimeout(() => {
+                loading.classList.add('hidden');
+            }, 3000);
+        }
+
+        // --- Statistics Chart ---
+        function updateChart(dataMap) {
+            const ctx = document.getElementById('analysisChart').getContext('2d');
+            const sortedKeys = Object.keys(dataMap).sort((a,b) => dataMap[b] - dataMap[a]).slice(0, 10);
+            const labels = sortedKeys.length > 0 ? sortedKeys : ['No matches'];
+            const values = sortedKeys.length > 0 ? sortedKeys.map(k => dataMap[k]) : [0];
+
+            if (chart) chart.destroy();
+            chart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Hits',
+                        data: values,
+                        backgroundColor: '#3b82f6',
+                        borderRadius: 5
+                    }]
+                },
+                options: {
+                    indexAxis: 'y',
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { 
+                        legend: { display: false },
+                        title: { display: true, text: 'Replacement Stats (Top 10)' }
+                    },
+                    scales: { x: { beginAtZero: true, ticks: { precision: 0 } } }
+                }
+            });
+        }
+
+        function copyAll() {
+            const target = document.getElementById('targetArea');
+            if (!target.value) return;
+            target.select();
+            document.execCommand('copy');
+            showToast("Copied to clipboard");
+        }
+
+        function showToast(msg) {
+            const t = document.getElementById('toast');
+            t.innerText = msg;
+            t.style.opacity = '1';
+            setTimeout(() => t.style.opacity = '0', 2000);
+        }
+
+        window.onload = () => {
+            renderBulkList();
+            updateChart({});
+        };
+    </script>
+</body>
+</html>
