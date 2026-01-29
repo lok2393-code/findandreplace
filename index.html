@@ -3,19 +3,17 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
     <title>Professional Bulk Replacer</title>
     
-    <!-- Tailwind CSS -->
+    <!-- Tailwind CSS - Using direct CDN for maximum compatibility on GitHub Pages -->
     <script src="https://cdn.tailwindcss.com"></script>
-    
-    <!-- Chart.js -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
         
         body {
-            font-family: 'Inter', sans-serif;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
             background-color: #f8f9fa;
         }
 
@@ -70,29 +68,21 @@
                 </div>
 
                 <!-- Editor Card -->
-                <div class="bg-white rounded-lg border border-gray-300 docs-shadow flex flex-col h-[500px]">
+                <div class="bg-white rounded-lg border border-gray-300 docs-shadow flex flex-col h-[600px]">
                     <div class="flex border-b border-gray-200 bg-gray-50 rounded-t-lg">
-                        <div class="flex-1 px-4 py-2 text-xs font-bold text-gray-500 uppercase">Source Content</div>
-                        <div class="flex-1 px-4 py-2 text-xs font-bold text-blue-500 uppercase border-l border-gray-200">Replaced Result</div>
+                        <div class="flex-1 px-4 py-2 text-xs font-bold text-gray-500 uppercase flex justify-between items-center">
+                            <span>Source Content</span>
+                        </div>
+                        <div class="flex-1 px-4 py-2 text-xs font-bold text-blue-500 uppercase border-l border-gray-200 flex justify-between items-center">
+                            <span>Replaced Result</span>
+                            <button onclick="copyAll()" class="bg-blue-50 text-blue-600 hover:bg-blue-100 px-2 py-1 rounded border border-blue-200 transition text-[10px]">
+                                📋 Copy
+                            </button>
+                        </div>
                     </div>
                     <div class="flex flex-grow overflow-hidden">
                         <textarea id="sourceArea" class="flex-1 p-4 outline-none resize-none text-gray-800 text-base leading-relaxed border-r border-gray-200" placeholder="Paste your original text here..."></textarea>
                         <textarea id="targetArea" class="flex-1 p-4 outline-none resize-none text-gray-800 text-base leading-relaxed bg-blue-50/10" placeholder="Processed result will appear here..." readonly></textarea>
-                    </div>
-                </div>
-
-                <!-- Analysis Section -->
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <div class="bg-white p-6 rounded-lg border border-gray-300 shadow-sm">
-                        <h3 class="font-bold text-gray-700 mb-4 border-b pb-2">Analysis Report</h3>
-                        <div class="space-y-3">
-                            <div class="flex justify-between"><span class="text-sm text-gray-500">Character Count</span><span id="statChars" class="font-bold">0</span></div>
-                            <div class="flex justify-between"><span class="text-sm text-gray-500">Total Replacements</span><span id="statReplaced" class="font-bold text-blue-600">0</span></div>
-                            <div class="flex justify-between"><span class="text-sm text-gray-500">Active Rules</span><span id="statRules" class="font-bold">1</span></div>
-                        </div>
-                    </div>
-                    <div class="bg-white p-6 rounded-lg border border-gray-300 shadow-sm md:col-span-2 h-64">
-                        <canvas id="analysisChart"></canvas>
                     </div>
                 </div>
             </div>
@@ -145,11 +135,11 @@
             { find: '恁', replace: '諗' },
             { find: '咧', replace: '呢' },
             { find: '哇', replace: '嘩' },
-            { find: '系', replace: '係' }
+            { find: '系', replace: '係' },
+            { find: '啊', replace: '呀' }
         ];
 
         let bulkItems = [...DEFAULT_RULES];
-        let chart = null;
 
         // --- UI Rendering ---
         function renderBulkList() {
@@ -178,8 +168,6 @@
                 `;
                 container.appendChild(row);
             });
-            
-            document.getElementById('statRules').innerText = bulkItems.length;
         }
 
         function updateItem(index, key, value) {
@@ -210,7 +198,8 @@
         }
 
         function toggleBulkPanel() {
-            document.getElementById('bulkPanel').classList.toggle('translate-x-full');
+            const panel = document.getElementById('bulkPanel');
+            panel.classList.toggle('translate-x-full');
         }
 
         // --- Core Logic: Local Processing ---
@@ -225,28 +214,16 @@
             loading.classList.remove('hidden');
             
             let processedText = source;
-            let totalReplaceCount = 0;
-            const replaceStats = {};
             
             bulkItems.forEach(item => {
                 if (item.find) {
                     const escapedFind = item.find.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
                     const regex = new RegExp(escapedFind, 'g');
-                    const matches = processedText.match(regex);
-                    
-                    if (matches) {
-                        totalReplaceCount += matches.length;
-                        processedText = processedText.replace(regex, item.replace);
-                        replaceStats[item.find] = (replaceStats[item.find] || 0) + matches.length;
-                    }
+                    processedText = processedText.replace(regex, item.replace);
                 }
             });
 
             document.getElementById('targetArea').value = processedText;
-            document.getElementById('statChars').innerText = source.length;
-            document.getElementById('statReplaced').innerText = totalReplaceCount;
-            
-            updateChart(replaceStats);
             showToast("Processing complete");
             
             setTimeout(() => {
@@ -254,44 +231,20 @@
             }, 3000);
         }
 
-        // --- Statistics Chart ---
-        function updateChart(dataMap) {
-            const ctx = document.getElementById('analysisChart').getContext('2d');
-            const sortedKeys = Object.keys(dataMap).sort((a,b) => dataMap[b] - dataMap[a]).slice(0, 10);
-            const labels = sortedKeys.length > 0 ? sortedKeys : ['No matches'];
-            const values = sortedKeys.length > 0 ? sortedKeys.map(k => dataMap[k]) : [0];
-
-            if (chart) chart.destroy();
-            chart = new Chart(ctx, {
-                type: 'bar',
-                data: {
-                    labels: labels,
-                    datasets: [{
-                        label: 'Hits',
-                        data: values,
-                        backgroundColor: '#3b82f6',
-                        borderRadius: 5
-                    }]
-                },
-                options: {
-                    indexAxis: 'y',
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: { 
-                        legend: { display: false },
-                        title: { display: true, text: 'Replacement Stats (Top 10)' }
-                    },
-                    scales: { x: { beginAtZero: true, ticks: { precision: 0 } } }
-                }
-            });
-        }
-
         function copyAll() {
             const target = document.getElementById('targetArea');
-            if (!target.value) return;
+            if (!target.value) {
+                showToast("Nothing to copy");
+                return;
+            }
             target.select();
-            document.execCommand('copy');
-            showToast("Copied to clipboard");
+            // Fallback for older browsers or restricted environments
+            try {
+                document.execCommand('copy');
+                showToast("Copied to clipboard");
+            } catch (err) {
+                showToast("Copy failed, please copy manually");
+            }
         }
 
         function showToast(msg) {
@@ -303,7 +256,6 @@
 
         window.onload = () => {
             renderBulkList();
-            updateChart({});
         };
     </script>
 </body>
